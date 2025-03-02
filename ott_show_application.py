@@ -1,10 +1,13 @@
 import requests  # Import the requests library to make HTTP requests
 import streamlit as st  # Import the streamlit library for creating web apps
+import logging  # Import the logging library for logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
 st.title("Movie Radar")  # Set the title of the Streamlit app
 
-def show_query():
-    title = st.text_input("Enter the title of the movie: ")  # Prompt the user to enter the title of the movie
+def show_query(title):
     try:
         # Define the query parameters for the API request
         querystring = {"country": "in", "title": title, "series_granularity": "show", "show_type": "movie", "output_language": "en"}
@@ -21,58 +24,187 @@ def show_query():
         # Make the GET request to the API
         response = requests.get(url, headers=headers, params=querystring)
         
+        # Check if the response was successful
+        if response.status_code != 200:
+            logging.error(f"API request failed with status code: {response.status_code}")
+            return None
+            
         # Parse the response JSON data
         data = response.json()
-        
-        titles =[item.get("title") for item in data]
-        directors = [item["releaseYear"] for item in data if "releaseYear" in item and item["releaseYear"]]
-
-
-        # Extract relevant information from the response data
-        title = data[0].get("title")
-        director = data[0]["directors"][0]
-        overView = data[0].get("overview")
-        cast = data[0]["cast"]
-        relesed_year = data[0].get("releaseYear")
-        rating = data[0].get("rating")
-        images = data[0]["imageSet"]["horizontalPoster"].get("w1440")
-
-        # Initialize streaming_options to "Not Available"
-        streaming_options = "Not Available"
-        
-        # Loop through the streaming options to find the appropriate link
-        for i in range(len(data[0]["streamingOptions"]["in"])):
-            streaming_type = data[0]["streamingOptions"]["in"][i].get('type')
-            
-            if streaming_type in ["subscription", "buy", "rent"]:
-                streaming_options = data[0]["streamingOptions"]["in"][i].get("link")
-                break  # Exit the loop once a valid streaming option is found
-
-        return title, director, overView, relesed_year, rating, images, streaming_options,cast,titles,directors
-
+    
+        return data  # Return just the result array
+    
     except Exception as e:
-        print(e)  # Print the exception if an error occurs
+        logging.error(f"Error in show_query: {e}")  # Log the exception
+        st.error(f"Error fetching movie data: {str(e)}")
         return None  # Return None if an error occurs
 
-# Call the show_query function and store the result in the movie variable
-movie = show_query()
-col1,col2 = st.columns(2)
-# Check if the movie variable is not None before accessing its elements
-if movie:
-    # Display the movie details using Streamlit
-    for i, (title, director) in enumerate(zip(movie[8], movie[9])):
-        st.button(f"{title} - {director}", key=f"title_{i}")
+def movie_title(data):
+    try:
+        if not data or len(data) == 0:
+            logging.warning("No movies found in data")
+            return None
+            
+        
+        # Create buttons for each movie
+        movieTitle = None
+        for i, movie in enumerate(data):
+            title = movie.get("title")
+            year = movie.get("releaseYear")
+            
+            # Create a unique key for each button
+            if st.button(f"{title} ({year})", key=f"title_{i}"):
+                movieTitle = title
+                logging.info(f"Selected movie title: {movieTitle}")
                 
-    st.title(f"{movie[0]}")
-    st.write(f"Directed by : {movie[1]}")
-    st.write(f"Overview: {movie[2]}")
-    st.write(f"Cast: {movie[7]}")
-    st.write(f"Released Year: {movie[3]}")
-    st.write(f"Rating: {movie[4]}")
-    if movie[6] == "Not Available":
-        None  # Do nothing if the streaming option is not available
-    else:
-        st.link_button("Watch", movie[5])  # Display a button to watch the movie if the link is available
-    st.image(movie[6])
-else:
-    st.write("Get details of any movie in one click.")  # Display an error message if no movie is found
+        return movieTitle
+    except Exception as e:
+        logging.error(f"Error in movie_title function: {e}")
+        st.error("Error displaying movie selection options")
+        return None
+        
+def movieSearch(data, movieTitle):
+    try:
+        for movie in data:
+            if movie.get("title") == movieTitle:
+                logging.info(f"Movie found: {movieTitle}")
+                return movie
+                
+        logging.warning(f"Movie not found: {movieTitle}")
+        return None
+    except Exception as e:
+        logging.error(f"Error in movieSearch: {e}")
+        return None
+
+def display_movie_details(movie):
+    try:
+        logging.info(f"Displaying details for movie: {movie.get('title')}")
+        
+        # Get movie details with fallbacks for missing data
+        title = movie.get("title", "Unknown Title")
+        
+        # Safely get director information
+        directors = movie.get("directors", [])
+        director = directors[0] if directors and len(directors) > 0 else "Unknown Director"
+        
+        overView = movie.get("overview", "No overview available")
+        
+        # Safely get cast information
+        cast = movie.get("cast", [])
+        
+        relesed_year = movie.get("releaseYear", "Unknown")
+        rating = movie.get("rating", "Not rated")
+        
+        # Safely get image URL
+        images = None
+        if "imageSet" in movie and "horizontalPoster" in movie["imageSet"]:
+            images = movie["imageSet"]["horizontalPoster"].get("w1440")
+        
+        logging.info(f"Title: {title}")
+        logging.info(f"Director: {director}")
+        logging.info(f"Overview: {overView}")
+        logging.info(f"Cast: {cast}")
+        logging.info(f"Released Year: {relesed_year}")
+        logging.info(f"Rating: {rating}")
+        logging.info(f"Images: {images}")
+
+        # Display the movie details using Streamlit
+        if images:
+            try:
+                st.image(images)
+            except Exception as img_err:
+                logging.error(f"Error displaying image: {img_err}")
+                st.error("Could not load movie image")
+        
+        st.title(title)
+        st.subheader(f"Directed by: {director}")
+        
+        # Movie details
+        col1, col2 = st.columns(2)
+        col1.write(f"**Released Year:** {relesed_year}")
+        col2.write(f"**Rating:** {rating}/100")
+        
+        # Overview
+        st.subheader("Overview")
+        st.write(overView)
+        
+        # Cast
+        if cast:
+            st.subheader("Cast")
+            st.write(", ".join(cast))
+
+        # Streaming options
+        streaming_available = False
+        try:
+            if "streamingOptions" in movie and "in" in movie["streamingOptions"]:
+                streaming_options = movie["streamingOptions"]["in"]
+                if streaming_options and len(streaming_options) > 0:
+                    
+                    for option in streaming_options:
+                        streaming_type = option.get('type', 'Unknown')
+                        link = option.get("link")
+                        
+                        if streaming_type in ["subscription", "buy", "rent"] and link:
+                            service = option.get("service", "streaming service")
+                            st.link_button(f"Watch", link)
+                            streaming_available = True
+                            break
+            
+            if not streaming_available:
+                st.info("No streaming options available for this movie")
+        except Exception as stream_err:
+            logging.error(f"Error processing streaming options: {stream_err}")
+            st.error("Error displaying streaming options")
+            
+    except Exception as e:
+        logging.error(f"Error in display_movie_details: {e}")
+        st.error("An error occurred while displaying movie details")
+
+# State management
+if 'selected_movie' not in st.session_state:
+    st.session_state.selected_movie = None
+if 'movie_data' not in st.session_state:
+    st.session_state.movie_data = None
+
+# Main function
+def main():
+    title = st.text_input("Enter the title of the movie:", key="search_input")
+    search_button = st.button("Search", key="search_button")
+    
+    if search_button and title:
+        # Clear previous selection
+        st.session_state.selected_movie = None
+        
+        with st.spinner("Searching for movies..."):
+            data = show_query(title)
+            st.session_state.movie_data = data
+            
+        if st.session_state.movie_data:
+            if len(st.session_state.movie_data) == 0:
+                st.warning("No movies found matching your search.")
+        else:
+            st.error("Failed to fetch movie data. Please try again.")
+    
+    # If we have movie data but no selection yet, show selection options
+    if st.session_state.movie_data and not st.session_state.selected_movie:
+        selected_title = movie_title(st.session_state.movie_data)
+        if selected_title:
+            st.session_state.selected_movie = movieSearch(st.session_state.movie_data, selected_title)
+            # Force a rerun to update the UI
+            st.rerun()
+    
+    # If we have a selected movie, display its details
+    if st.session_state.selected_movie:
+        display_movie_details(st.session_state.selected_movie)
+        
+        # Add a button to go back to search results
+        if st.button("Back to search results"):
+            st.session_state.selected_movie = None
+            st.rerun()
+    
+    # Show welcome message if nothing has been searched yet
+    if not st.session_state.movie_data and not search_button:
+        st.write("Get details of any movie in one click.")
+
+if __name__ == "__main__":
+    main()
