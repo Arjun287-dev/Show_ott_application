@@ -23,6 +23,10 @@ def show_query():
         
         # Parse the response JSON data
         data = response.json()
+        
+        titles =[item.get("title") for item in data]
+        directors = [item["releaseYear"] for item in data if "releaseYear" in item and item["releaseYear"]]
+
 
         # Extract relevant information from the response data
         title = data[0].get("title")
@@ -44,7 +48,7 @@ def show_query():
                 streaming_options = data[0]["streamingOptions"]["in"][i].get("link")
                 break  # Exit the loop once a valid streaming option is found
 
-        return title, director, overView, relesed_year, rating, images, streaming_options,cast
+        return title, director, overView, relesed_year, rating, images, streaming_options,cast,titles,directors
 
     except Exception as e:
         print(e)  # Print the exception if an error occurs
@@ -52,10 +56,13 @@ def show_query():
 
 # Call the show_query function and store the result in the movie variable
 movie = show_query()
-
+col1,col2 = st.columns(2)
 # Check if the movie variable is not None before accessing its elements
 if movie:
     # Display the movie details using Streamlit
+    for i, (title, director) in enumerate(zip(movie[8], movie[9])):
+        st.button(f"{title} - {director}", key=f"title_{i}")
+                
     st.title(f"{movie[0]}")
     st.write(f"Directed by : {movie[1]}")
     st.write(f"Overview: {movie[2]}")
@@ -66,6 +73,6 @@ if movie:
         None  # Do nothing if the streaming option is not available
     else:
         st.link_button("Watch", movie[5])  # Display a button to watch the movie if the link is available
-    st.image(movie[5])
+    st.image(movie[6])
 else:
     st.write("Get details of any movie in one click.")  # Display an error message if no movie is found
