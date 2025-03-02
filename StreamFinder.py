@@ -1,11 +1,7 @@
 import requests  # Import the requests library to make HTTP requests
 import streamlit as st  # Import the streamlit library for creating web apps
-import logging  # Import the logging library for logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-
-st.title("Movie Radar")  # Set the title of the Streamlit app
+st.title("StreamFinder")  # Set the title of the Streamlit app
 
 def show_query(title):
     try:
@@ -26,7 +22,7 @@ def show_query(title):
         
         # Check if the response was successful
         if response.status_code != 200:
-            logging.error(f"API request failed with status code: {response.status_code}")
+            st.error("😕 We couldn't connect to the movie database. Please try again later.")
             return None
             
         # Parse the response JSON data
@@ -34,15 +30,20 @@ def show_query(title):
     
         return data  # Return just the result array
     
+    except requests.exceptions.ConnectionError:
+        st.error("📶 Internet connection issue. Please check your connection and try again.")
+        return None
+    except requests.exceptions.Timeout:
+        st.error("⏱️ The request timed out. The movie database might be busy. Please try again.")
+        return None
     except Exception as e:
-        logging.error(f"Error in show_query: {e}")  # Log the exception
-        st.error(f"Error fetching movie data: {str(e)}")
+        st.error("🎬 Something went wrong while searching for movies. Please try again.")
         return None  # Return None if an error occurs
 
 def movie_title(data):
     try:
         if not data or len(data) == 0:
-            logging.warning("No movies found in data")
+            st.info("🔎 We couldn't find any movies matching your search. Please try a different title.")
             return None
             
         
@@ -55,31 +56,26 @@ def movie_title(data):
             # Create a unique key for each button
             if st.button(f"{title} ({year})", key=f"title_{i}"):
                 movieTitle = title
-                logging.info(f"Selected movie title: {movieTitle}")
                 
         return movieTitle
     except Exception as e:
-        logging.error(f"Error in movie_title function: {e}")
-        st.error("Error displaying movie selection options")
+        st.error("🎞️ There was a problem displaying the movie options. Please try your search again.")
         return None
         
 def movieSearch(data, movieTitle):
     try:
         for movie in data:
             if movie.get("title") == movieTitle:
-                logging.info(f"Movie found: {movieTitle}")
                 return movie
                 
-        logging.warning(f"Movie not found: {movieTitle}")
+        st.warning(f"🎭 We couldn't find details for '{movieTitle}'. Please try another selection.")
         return None
     except Exception as e:
-        logging.error(f"Error in movieSearch: {e}")
+        st.error("🎬 Something went wrong while retrieving movie details. Please try again.")
         return None
 
 def display_movie_details(movie):
     try:
-        logging.info(f"Displaying details for movie: {movie.get('title')}")
-        
         # Get movie details with fallbacks for missing data
         title = movie.get("title", "Unknown Title")
         
@@ -99,22 +95,13 @@ def display_movie_details(movie):
         images = None
         if "imageSet" in movie and "horizontalPoster" in movie["imageSet"]:
             images = movie["imageSet"]["horizontalPoster"].get("w1440")
-        
-        logging.info(f"Title: {title}")
-        logging.info(f"Director: {director}")
-        logging.info(f"Overview: {overView}")
-        logging.info(f"Cast: {cast}")
-        logging.info(f"Released Year: {relesed_year}")
-        logging.info(f"Rating: {rating}")
-        logging.info(f"Images: {images}")
 
         # Display the movie details using Streamlit
         if images:
             try:
                 st.image(images)
-            except Exception as img_err:
-                logging.error(f"Error displaying image: {img_err}")
-                st.error("Could not load movie image")
+            except Exception:
+                st.info("🖼️ Could not load movie poster image")
         
         st.title(title)
         st.subheader(f"Directed by: {director}")
@@ -151,14 +138,12 @@ def display_movie_details(movie):
                             break
             
             if not streaming_available:
-                st.info("No streaming options available for this movie")
-        except Exception as stream_err:
-            logging.error(f"Error processing streaming options: {stream_err}")
-            st.error("Error displaying streaming options")
+                st.info("🎬 No streaming options available for this movie in your region")
+        except Exception:
+            st.info("🎞️ Could not retrieve streaming options at this time")
             
-    except Exception as e:
-        logging.error(f"Error in display_movie_details: {e}")
-        st.error("An error occurred while displaying movie details")
+    except Exception:
+        st.error("🎬 We encountered a problem showing movie details. Please try again.")
 
 # State management
 if 'selected_movie' not in st.session_state:
@@ -181,9 +166,9 @@ def main():
             
         if st.session_state.movie_data:
             if len(st.session_state.movie_data) == 0:
-                st.warning("No movies found matching your search.")
+                st.info("🔍 No movies found matching your search. Please try a different title.")
         else:
-            st.error("Failed to fetch movie data. Please try again.")
+            st.error("🎬 Unable to connect to movie database. Please try again later.")
     
     # If we have movie data but no selection yet, show selection options
     if st.session_state.movie_data and not st.session_state.selected_movie:
