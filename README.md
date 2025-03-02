@@ -38,7 +38,7 @@ Before running the application, ensure you have the following:
 
 ## Usage
 1. Search the name of the movie.
-2. Select the movie from the given the result according to the .
+2. Select the movie from the given the result according to the name, director's name and year of release.
 3. access the chat history from the sidebar.
 
 ## API Reference
