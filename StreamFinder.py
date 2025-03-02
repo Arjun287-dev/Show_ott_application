@@ -52,9 +52,10 @@ def movie_title(data):
         for i, movie in enumerate(data):
             title = movie.get("title")
             year = movie.get("releaseYear")
+            directors = movie.get("directors")
             
             # Create a unique key for each button
-            if st.button(f"{title} ({year})", key=f"title_{i}"):
+            if st.button(f"{title} - {directors} ({year})", key=f"title_{i}"):
                 movieTitle = title
                 
         return movieTitle
@@ -189,7 +190,7 @@ def main():
     
     # Show welcome message if nothing has been searched yet
     if not st.session_state.movie_data and not search_button:
-        st.write("Get details of any movie in one click.")
+        st.write("Get streaming platform of any movie.")
 
 if __name__ == "__main__":
     main()
